@@ -78,22 +78,29 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
                 if [[ "$IDLE_SECS" -ge "$IDLE_TIMEOUT" ]]; then
                     echo "[watchdog] Idle limit reached — self-terminating pod $RUNPOD_POD_ID"
 
-                    for ATTEMPT in $(seq 1 15); do
+                    DELETED=false
+                    for ATTEMPT in $(seq 1 5); do
                         RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
                             "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" \
                             -H "Authorization: Bearer $RUNPOD_API_KEY")
                         HTTP_CODE=$(echo "$RESPONSE" | tail -1)
                         BODY=$(echo "$RESPONSE" | sed '$d')
-                        echo "[watchdog] DELETE attempt ${ATTEMPT}/15 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
+                        echo "[watchdog] DELETE attempt ${ATTEMPT}/5 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
 
                         if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "204" ]]; then
                             echo "[watchdog] Pod delete confirmed"
+                            DELETED=true
                             break
                         fi
 
-                        echo "[watchdog] Retrying in 20s..."
-                        sleep 20
+                        echo "[watchdog] Retrying in 30s..."
+                        sleep 30
                     done
+
+                    if [[ "$DELETED" != "true" ]]; then
+                        echo "[watchdog] All delete attempts failed — killing TEI to force container exit"
+                        kill "$TEI_PID" 2>/dev/null
+                    fi
 
                     break
                 fi
