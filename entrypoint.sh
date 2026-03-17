@@ -30,7 +30,6 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
     (
         IDLE_TIMEOUT="$SELF_DESTROY_SECS"
         LAST_COUNT=-1
-        IDLE_SINCE=$(date +%s)
 
         # Resolve TEI port from args (default 80)
         TEI_PORT=80
@@ -44,6 +43,18 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
         MAX_MIN=$((IDLE_TIMEOUT / 60))
 
         echo "[watchdog] Enabled — idle timeout: ${IDLE_TIMEOUT}s (${MAX_MIN}m), TEI port: ${TEI_PORT}"
+        echo "[watchdog] Waiting for TEI to be ready..."
+
+        # Wait for TEI to be healthy before starting idle countdown
+        while kill -0 "$TEI_PID" 2>/dev/null; do
+            if curl -sf "http://localhost:${TEI_PORT}/health" >/dev/null 2>&1; then
+                echo "[watchdog] TEI is ready — starting idle countdown"
+                break
+            fi
+            sleep 10
+        done
+
+        IDLE_SINCE=$(date +%s)
 
         while kill -0 "$TEI_PID" 2>/dev/null; do
             sleep 60
