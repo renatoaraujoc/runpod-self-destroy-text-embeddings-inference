@@ -104,8 +104,7 @@ if [[ -n "$SELF_DESTROY_SECS" && -n "${RUNPOD_API_KEY_OVERRIDE:-}" ]]; then
                     done
 
                     if [[ "$DELETED" != "true" ]]; then
-                        echo "[watchdog] All delete attempts failed — killing TEI to force container exit"
-                        kill "$TEI_PID" 2>/dev/null
+                        echo "[watchdog] ERROR: All delete attempts failed. Pod will remain running until manually terminated or the API cleanup cron handles it."
                     fi
 
                     break
