@@ -60,8 +60,8 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
             sleep 60
 
             COUNT=$(curl -sf "http://localhost:${TEI_PORT}/metrics" 2>/dev/null \
-                | grep -m1 "^te_request_count " \
-                | awk '{print $2}' \
+                | grep -m1 "^te_request_count" \
+                | awk '{print $NF}' \
                 || echo "$LAST_COUNT")
 
             NOW=$(date +%s)
