@@ -35,7 +35,7 @@ Without `--self-destroy-in-secs`, the container behaves identically to the upstr
 | Variable | Required | Description |
 |---|---|---|
 | `RUNPOD_POD_ID` | No (auto-injected) | Automatically set by RunPod inside every pod — do NOT set this manually. |
-| `RUNPOD_API_KEY` | Yes (when watchdog enabled) | RunPod API key. Must be set as a template env var in the RunPod console. |
+| `SELF_DESTROY_API_KEY` | Yes (when watchdog enabled) | RunPod API key for pod self-deletion. Must be set as a template env var. **Do NOT use `RUNPOD_API_KEY`** — RunPod overrides it with an internal key. |
 
 ## How it works
 

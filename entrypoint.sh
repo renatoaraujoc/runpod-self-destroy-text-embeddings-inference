@@ -82,7 +82,7 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
                     for ATTEMPT in $(seq 1 5); do
                         RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
                             "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" \
-                            -H "Authorization: Bearer $RUNPOD_API_KEY")
+                            -H "Authorization: Bearer $SELF_DESTROY_API_KEY")
                         HTTP_CODE=$(echo "$RESPONSE" | tail -1)
                         BODY=$(echo "$RESPONSE" | sed '$d')
                         echo "[watchdog] DELETE attempt ${ATTEMPT}/5 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
