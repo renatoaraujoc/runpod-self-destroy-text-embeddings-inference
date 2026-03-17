@@ -18,7 +18,7 @@ Based on TEI `1.9`. Each architecture has its own image tag.
 
 Image format: `ghcr.io/renatoaraujoc/runpod-self-destroy-text-embeddings-inference:{arch}-{tei_version}-{version}`
 
-Example: `ghcr.io/renatoaraujoc/runpod-self-destroy-text-embeddings-inference:86-1.9-v2.0.0`
+Example: `ghcr.io/renatoaraujoc/runpod-self-destroy-text-embeddings-inference:86-1.9-v1.0.0`
 
 ## Usage
 
@@ -43,4 +43,5 @@ Without `--self-destroy-in-secs`, the container behaves identically to the upstr
 2. TEI starts normally in the background.
 3. If watchdog is enabled, it waits for TEI's `/health` endpoint to return 200 before starting the idle countdown.
 4. A background loop checks TEI's `/metrics` endpoint every 60s.
-5. If `te_request_count` hasn't changed for the configured duration, the pod self-deletes via `DELETE https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID` with 15 retries every 20s.
+5. If `te_request_count` hasn't changed for the configured duration, the pod self-deletes via `DELETE https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID` with 5 retries every 30s.
+6. Both `--self-destroy-in-secs` and `RUNPOD_API_KEY_OVERRIDE` must be provided for the watchdog to activate. If only one is set, the watchdog logs a warning and stays disabled.
