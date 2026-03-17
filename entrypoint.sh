@@ -80,9 +80,9 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
 
                     BACKOFF=2
                     for ATTEMPT in 1 2 3 4 5; do
-                        HTTP_CODE=$(curl -s -o /dev/stderr -w "%{http_code}" -X DELETE \
+                        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
                             "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" \
-                            -H "Authorization: Bearer $RUNPOD_API_KEY" 2>&1)
+                            -H "Authorization: Bearer $RUNPOD_API_KEY")
                         echo "[watchdog] DELETE attempt ${ATTEMPT}/5 — HTTP ${HTTP_CODE}"
 
                         if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "204" ]]; then
