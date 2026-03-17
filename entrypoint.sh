@@ -26,7 +26,13 @@ TEI_PID=$!
 
 # ─── Watchdog (only if --self-destroy-in-secs was provided) ───────────────────
 
-if [[ -n "$SELF_DESTROY_SECS" ]]; then
+if [[ -n "$SELF_DESTROY_SECS" && -z "${RUNPOD_API_KEY_OVERRIDE:-}" ]]; then
+    echo "[watchdog] ERROR: --self-destroy-in-secs requires RUNPOD_API_KEY_OVERRIDE env var. Watchdog disabled."
+elif [[ -z "$SELF_DESTROY_SECS" && -n "${RUNPOD_API_KEY_OVERRIDE:-}" ]]; then
+    echo "[watchdog] WARNING: RUNPOD_API_KEY_OVERRIDE is set but --self-destroy-in-secs was not provided. Watchdog disabled."
+fi
+
+if [[ -n "$SELF_DESTROY_SECS" && -n "${RUNPOD_API_KEY_OVERRIDE:-}" ]]; then
     (
         IDLE_TIMEOUT="$SELF_DESTROY_SECS"
         LAST_COUNT=-1
@@ -82,7 +88,7 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
                     for ATTEMPT in $(seq 1 5); do
                         RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
                             "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" \
-                            -H "Authorization: Bearer $SELF_DESTROY_API_KEY")
+                            -H "Authorization: Bearer $RUNPOD_API_KEY_OVERRIDE")
                         HTTP_CODE=$(echo "$RESPONSE" | tail -1)
                         BODY=$(echo "$RESPONSE" | sed '$d')
                         echo "[watchdog] DELETE attempt ${ATTEMPT}/5 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
