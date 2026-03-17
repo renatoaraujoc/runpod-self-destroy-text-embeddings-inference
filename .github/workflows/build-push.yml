@@ -11,6 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  TEI_VERSION: "1.9"
 
 jobs:
   resolve-version:
@@ -70,18 +71,30 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Resolved version: ${VERSION} (latest was: ${LATEST:-none})"
 
-  build-and-push:
+  build-matrix:
     needs: resolve-version
     runs-on: ubuntu-latest
     permissions:
-      contents: write
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [default, "86", "89", hopper, turing, "100", "120"]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          fetch-tags: true
+
+      - name: Resolve base image tag
+        id: base
+        run: |
+          ARCH="${{ matrix.arch }}"
+          TEI="${{ env.TEI_VERSION }}"
+
+          if [[ "$ARCH" == "default" ]]; then
+            echo "tag=${TEI}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${ARCH}-${TEI}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -90,23 +103,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.resolve-version.outputs.version }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ needs.resolve-version.outputs.version }}
-            type=raw,value=latest
-
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=ghcr.io/huggingface/text-embeddings-inference:${{ steps.base.outputs.tag }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-${{ needs.resolve-version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-latest
+
+  release:
+    needs: [resolve-version, build-matrix]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Create and push tag
         run: |
@@ -134,11 +152,17 @@ jobs:
           tag_name: ${{ needs.resolve-version.outputs.version }}
           name: ${{ needs.resolve-version.outputs.version }}
           body: |
-            ## Docker Image
+            ## Docker Images
 
-            ```
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve-version.outputs.version }}
-            ```
+            | Architecture | Image |
+            |---|---|
+            | Ampere 8.0 (A100, A30) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:default-${{ needs.resolve-version.outputs.version }}` |
+            | Ampere 8.6 (A10, A40, A6000, 30-series) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:86-${{ needs.resolve-version.outputs.version }}` |
+            | Ada Lovelace (RTX 4090, L4, L40) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:89-${{ needs.resolve-version.outputs.version }}` |
+            | Hopper (H100) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:hopper-${{ needs.resolve-version.outputs.version }}` |
+            | Turing (T4, RTX 2000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:turing-${{ needs.resolve-version.outputs.version }}` |
+            | Blackwell 10.0 (B200) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:100-${{ needs.resolve-version.outputs.version }}` |
+            | Blackwell 12.0 (RTX 5000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:120-${{ needs.resolve-version.outputs.version }}` |
 
             ## Changes
 

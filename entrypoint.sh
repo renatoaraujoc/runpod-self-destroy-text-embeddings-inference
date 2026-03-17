@@ -78,23 +78,21 @@ if [[ -n "$SELF_DESTROY_SECS" ]]; then
                 if [[ "$IDLE_SECS" -ge "$IDLE_TIMEOUT" ]]; then
                     echo "[watchdog] Idle limit reached — self-terminating pod $RUNPOD_POD_ID"
 
-                    BACKOFF=2
-                    for ATTEMPT in 1 2 3 4 5; do
+                    for ATTEMPT in $(seq 1 15); do
                         RESPONSE=$(curl -s -w "\n%{http_code}" -X DELETE \
                             "https://rest.runpod.io/v1/pods/$RUNPOD_POD_ID" \
                             -H "Authorization: Bearer $RUNPOD_API_KEY")
                         HTTP_CODE=$(echo "$RESPONSE" | tail -1)
                         BODY=$(echo "$RESPONSE" | sed '$d')
-                        echo "[watchdog] DELETE attempt ${ATTEMPT}/5 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
+                        echo "[watchdog] DELETE attempt ${ATTEMPT}/15 — HTTP ${HTTP_CODE}${BODY:+ — $BODY}"
 
                         if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "204" ]]; then
                             echo "[watchdog] Pod delete confirmed"
                             break
                         fi
 
-                        echo "[watchdog] Retrying in ${BACKOFF}s..."
-                        sleep "$BACKOFF"
-                        BACKOFF=$((BACKOFF * 2))
+                        echo "[watchdog] Retrying in 20s..."
+                        sleep 20
                     done
 
                     break
