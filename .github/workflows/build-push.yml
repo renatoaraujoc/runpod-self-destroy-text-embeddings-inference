@@ -1,28 +1,90 @@
 name: Build and push Docker image
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver version (e.g. 1.0.0 or v1.0.0)"
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  resolve-version:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
-
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Parse and validate semver
+        id: parse
+        run: |
+          RAW="${{ inputs.version }}"
+
+          # Strip leading 'v' if present
+          STRIPPED="${RAW#v}"
+
+          # Must be exactly X.Y.Z with digits only
+          if [[ ! "$STRIPPED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Try X.Y -> X.Y.0
+            if [[ "$STRIPPED" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              STRIPPED="${STRIPPED}.0"
+            else
+              echo "::error::Invalid semver: '${RAW}'. Expected format: X.Y.Z (e.g. 1.0.0, v1.0.0, v1.0)"
+              exit 1
+            fi
+          fi
+
+          VERSION="v${STRIPPED}"
+
+          # Check if tag already exists
+          if git tag -l "$VERSION" | grep -q .; then
+            echo "::error::Version ${VERSION} already exists."
+            exit 1
+          fi
+
+          # Compare against latest existing tag
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [[ -n "$LATEST" ]]; then
+            LATEST_NUMS="${LATEST#v}"
+            IFS='.' read -r L_MAJOR L_MINOR L_PATCH <<< "$LATEST_NUMS"
+            IFS='.' read -r N_MAJOR N_MINOR N_PATCH <<< "$STRIPPED"
+
+            L_VAL=$(( L_MAJOR * 1000000 + L_MINOR * 1000 + L_PATCH ))
+            N_VAL=$(( N_MAJOR * 1000000 + N_MINOR * 1000 + N_PATCH ))
+
+            if [[ "$N_VAL" -le "$L_VAL" ]]; then
+              echo "::error::Version ${VERSION} is not greater than latest ${LATEST}."
+              exit 1
+            fi
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: ${VERSION} (latest was: ${LATEST:-none})"
+
+  build-and-push:
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -30,18 +92,55 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ needs.resolve-version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.resolve-version.outputs.version }}
             type=raw,value=latest
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ needs.resolve-version.outputs.version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          VERSION="${{ needs.resolve-version.outputs.version }}"
+          PREV_TAG=$(git tag --sort=-v:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s" "$VERSION")
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" "${PREV_TAG}..${VERSION}")
+          fi
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-version.outputs.version }}
+          name: ${{ needs.resolve-version.outputs.version }}
+          body: |
+            ## Docker Image
+
+            ```
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve-version.outputs.version }}
+            ```
+
+            ## Changes
+
+            ${{ steps.changelog.outputs.changelog }}
+          generate_release_notes: false
