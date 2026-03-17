@@ -111,8 +111,8 @@ jobs:
           build-args: |
             BASE_IMAGE=ghcr.io/huggingface/text-embeddings-inference:${{ steps.base.outputs.tag }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-${{ needs.resolve-version.outputs.version }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}-${{ env.TEI_VERSION }}-latest
 
   release:
     needs: [resolve-version, build-matrix]
@@ -156,13 +156,13 @@ jobs:
 
             | Architecture | Image |
             |---|---|
-            | Ampere 8.0 (A100, A30) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:default-${{ needs.resolve-version.outputs.version }}` |
-            | Ampere 8.6 (A10, A40, A6000, 30-series) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:86-${{ needs.resolve-version.outputs.version }}` |
-            | Ada Lovelace (RTX 4090, L4, L40) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:89-${{ needs.resolve-version.outputs.version }}` |
-            | Hopper (H100) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:hopper-${{ needs.resolve-version.outputs.version }}` |
-            | Turing (T4, RTX 2000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:turing-${{ needs.resolve-version.outputs.version }}` |
-            | Blackwell 10.0 (B200) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:100-${{ needs.resolve-version.outputs.version }}` |
-            | Blackwell 12.0 (RTX 5000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:120-${{ needs.resolve-version.outputs.version }}` |
+            | Ampere 8.0 (A100, A30) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:default-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Ampere 8.6 (A10, A40, A6000, 30-series) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:86-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Ada Lovelace (RTX 4090, L4, L40) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:89-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Hopper (H100) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:hopper-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Turing (T4, RTX 2000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:turing-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Blackwell 10.0 (B200) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:100-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
+            | Blackwell 12.0 (RTX 5000) | `docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:120-${{ env.TEI_VERSION }}-${{ needs.resolve-version.outputs.version }}` |
 
             ## Changes
 
